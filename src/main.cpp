@@ -4435,8 +4435,7 @@ CBlockTemplate* CreateNewBlock(CReserveKey& reservekey)
 
         nLastBlockTx = nBlockTx;
         nLastBlockSize = nBlockSize;
-        if (fDebug && GetBoolArg("-printmining"))
-            printf("CreateNewBlock(): total size %"PRI64u"\n", nBlockSize);
+        printf("CreateNewBlock(): total size %"PRI64u"\n", nBlockSize);
         pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock);
         pblock->vtx[0].vout[0].nValue = GetBlockValue(pblock->nBits, nFees);
         pblocktemplate->vTxFees[0] = -nFees;
@@ -4595,8 +4594,7 @@ void static BitcoinMiner(CWallet *pwallet)
         CBlock *pblock = &pblocktemplate->block;
         IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
 
-        if (fDebug && GetBoolArg("-printmining"))
-            printf("Running PrimecoinMiner with %"PRIszu" transactions in block (%u bytes)\n", pblock->vtx.size(),
+        printf("Running PrimecoinMiner with %"PRIszu" transactions in block (%u bytes)\n", pblock->vtx.size(),
                ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
 
         //
@@ -4609,8 +4607,13 @@ void static BitcoinMiner(CWallet *pwallet)
         // Primecoin: try to find hash divisible by primorial
         CBigNum bnHashFactor;
         Primorial(nPrimorialHashFactor, bnHashFactor);
-        while ((pblock->GetHeaderHash() < hashBlockHeaderLimit || CBigNum(pblock->GetHeaderHash()) % bnHashFactor != 0) && pblock->nNonce < 0xffff0000)
+//        while ((pblock->GetHeaderHash() < hashBlockHeaderLimit || CBigNum(pblock->GetHeaderHash()) % bnHashFactor != 0) && pblock->nNonce < 0xffff0000)
+//            pblock->nNonce++;
+        uint256 phash = pblock->GetHeaderHash();
+        while ((phash < hashBlockHeaderLimit || CBigNum(phash) % bnHashFactor != 0) && pblock->nNonce < 0xffff0000) {
             pblock->nNonce++;
+            phash = pblock->GetHeaderHash();
+        }
         if (pblock->nNonce >= 0xffff0000)
             continue;
         // Primecoin: primorial fixed multiplier
@@ -4639,7 +4642,8 @@ void static BitcoinMiner(CWallet *pwallet)
             unsigned int nTests = 0;
             unsigned int nPrimesHit = 0;
 
-            CBigNum bnMultiplierMin = bnPrimeMin * bnHashFactor / CBigNum(pblock->GetHeaderHash()) + 1;
+//            CBigNum bnMultiplierMin = bnPrimeMin * bnHashFactor / CBigNum(pblock->GetHeaderHash()) + 1;
+            CBigNum bnMultiplierMin = bnPrimeMin * bnHashFactor / CBigNum(phash) + 1;
             while (bnPrimorial < bnMultiplierMin)
             {
                 if (!PrimeTableGetNextPrime(nPrimorialMultiplier))
@@ -4650,7 +4654,8 @@ void static BitcoinMiner(CWallet *pwallet)
 
             // Primecoin: mine for prime chain
             unsigned int nProbableChainLength;
-            if (MineProbablePrimeChain(*pblock, bnFixedMultiplier, fNewBlock, nTriedMultiplier, nProbableChainLength, nTests, nPrimesHit))
+//            if (MineProbablePrimeChain(*pblock, bnFixedMultiplier, fNewBlock, nTriedMultiplier, nProbableChainLength, nTests, nPrimesHit))
+            if (MineProbablePrimeChain(*pblock, bnFixedMultiplier, fNewBlock, nTriedMultiplier, nProbableChainLength, nTests, nPrimesHit, phash))
             {
                 SetThreadPriority(THREAD_PRIORITY_NORMAL);
                 CheckWork(pblock, *pwalletMain, reservekey);
@@ -4679,6 +4684,7 @@ void static BitcoinMiner(CWallet *pwallet)
                 static CCriticalSection cs;
                 {
                     LOCK(cs);
+//This is already checked a few lines above, why do it again?
                     if (GetTimeMillis() - nHPSTimerStart > 60000)
                     {
                         double dPrimesPerMinute = 60000.0 * nPrimeCounter / (GetTimeMillis() - nHPSTimerStart);
@@ -4714,8 +4720,7 @@ void static BitcoinMiner(CWallet *pwallet)
         nTimeExpected = nTimeExpected * max(1u, nRoundTests) / max(1u, nRoundPrimesHit);
         for (unsigned int n = 1; n < TargetGetLength(pblock->nBits); n++)
              nTimeExpected = nTimeExpected * max(1u, nRoundTests) * 3 / max(1u, nRoundPrimesHit);
-        if (fDebug && GetBoolArg("-printmining"))
-            printf("PrimecoinMiner() : Round primorial=%u tests=%u primes=%u expected=%us\n", nPrimorialMultiplier, nRoundTests, nRoundPrimesHit, (unsigned int)(nTimeExpected/1000000));
+        printf("PrimecoinMiner() : Round primorial=%u tests=%u primes=%u expected=%us\n", nPrimorialMultiplier, nRoundTests, nRoundPrimesHit, (unsigned int)(nTimeExpected/1000000));
     } }
     catch (boost::thread_interrupted)
     {

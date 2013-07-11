@@ -57,7 +57,7 @@ bool TargetGetMint(unsigned int nBits, uint64& nMint);
 bool TargetGetNext(unsigned int nBits, int64 nInterval, int64 nTargetSpacing, int64 nActualSpacing, unsigned int& nBitsNext);
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, CBigNum& bnFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit);
+bool MineProbablePrimeChain(CBlock& block, CBigNum& bnFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, uint256& headerhash);
 
 // Check prime proof-of-work
 enum // prime chain type
@@ -145,7 +145,7 @@ public:
 
     // Get progress percentage of the sieve
     unsigned int GetProgressPercentage();
-
+ 
     // Weave the sieve for the next prime in table
     // Return values:
     //   True  - weaved another prime; nComposite - number of composites removed

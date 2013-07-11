@@ -23,22 +23,30 @@ void GeneratePrimeTable()
     for (unsigned int n = 2; n < nPrimeTableLimit; n++)
         if (!vfComposite[n])
             vPrimes.push_back(n);
-    printf("GeneratePrimeTable() : prime table [1, %d] generated with %lu primes", nPrimeTableLimit, vPrimes.size());
+    //printf("GeneratePrimeTable() : prime table [1, %d] generated with %lu primes", nPrimeTableLimit, vPrimes.size());
     //BOOST_FOREACH(unsigned int nPrime, vPrimes)
     //    printf(" %u", nPrime);
-    printf("\n");
+    //printf("\n");
 }
 
 // Get next prime number of p
 bool PrimeTableGetNextPrime(unsigned int& p)
 {
-    BOOST_FOREACH(unsigned int nPrime, vPrimes)
-    {
-        if (nPrime > p)
-        {
-            p = nPrime;
-            return true;
-        }
+//    BOOST_FOREACH(unsigned int nPrime, vPrimes)
+//    {
+//        if (nPrime > p)
+//        {
+//            p = nPrime;
+//            return true;
+//        }
+//    }
+//    return false;
+
+    //From Mike270 @ BCT
+    std::vector<unsigned int>::iterator foundelement=upper_bound(vPrimes.begin(), vPrimes.end(),p);
+    if (foundelement!=vPrimes.end()){
+        p=*foundelement;
+        return true;
     }
     return false;
 }
@@ -46,16 +54,24 @@ bool PrimeTableGetNextPrime(unsigned int& p)
 // Get previous prime number of p
 bool PrimeTableGetPreviousPrime(unsigned int& p)
 {
-    unsigned int nPrevPrime = 0;
-    BOOST_FOREACH(unsigned int nPrime, vPrimes)
-    {
-        if (nPrime >= p)
-            break;
-        nPrevPrime = nPrime;
-    }
-    if (nPrevPrime)
-    {
-        p = nPrevPrime;
+//    unsigned int nPrevPrime = 0;
+//    BOOST_FOREACH(unsigned int nPrime, vPrimes)
+//    {
+//        if (nPrime >= p)
+//            break;
+//        nPrevPrime = nPrime;
+//    }
+//    if (nPrevPrime)
+//    {
+//        p = nPrevPrime;
+//        return true;
+//    }
+//    return false;
+
+    //From Mike270 @ BCT
+    std::vector<unsigned int>::iterator foundelement=lower_bound(vPrimes.begin(), vPrimes.end(),p);
+    if (foundelement!=vPrimes.end()){
+        p=*--foundelement;
         return true;
     }
     return false;
@@ -255,7 +271,7 @@ bool TargetGetNext(unsigned int nBits, int64 nInterval, int64 nTargetSpacing, in
         bnFractionalDifficulty = nFractionalDifficultyMin;
     uint64 nFractionalDifficultyNew = bnFractionalDifficulty.getuint256().Get64();
     if (fDebug && GetBoolArg("-printtarget"))
-        printf("TargetGetNext() : nActualSpacing=%d nFractionDiff=%016"PRI64x" nFractionDiffNew=%016"PRI64x"\n", (int)nActualSpacing, nFractionalDifficulty, nFractionalDifficultyNew);
+        //printf("TargetGetNext() : nActualSpacing=%d nFractionDiff=%016"PRI64x" nFractionDiffNew=%016"PRI64x"\n", (int)nActualSpacing, nFractionalDifficulty, nFractionalDifficultyNew);
     // Step up length if fractional past threshold
     if (nFractionalDifficultyNew > nFractionalDifficultyThreshold)
     {
@@ -338,7 +354,7 @@ bool ProbablePrimeChainTest(const CBigNum& bnPrimeChainOrigin, unsigned int nBit
 boost::thread_specific_ptr<CSieveOfEratosthenes> psieve;
 
 // Mine probable prime chain of form: n = h * p# +/- 1
-bool MineProbablePrimeChain(CBlock& block, CBigNum& bnFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit)
+bool MineProbablePrimeChain(CBlock& block, CBigNum& bnFixedMultiplier, bool& fNewBlock, unsigned int& nTriedMultiplier, unsigned int& nProbableChainLength, unsigned int& nTests, unsigned int& nPrimesHit, uint256& headerhash)
 {
     nProbableChainLength = 0;
     nTests = 0;
@@ -352,16 +368,16 @@ bool MineProbablePrimeChain(CBlock& block, CBigNum& bnFixedMultiplier, bool& fNe
     fNewBlock = false;
 
     int64 nStart, nCurrent; // microsecond timer
-    CBlockIndex* pindexPrev = pindexBest;
+    CBlockIndex* pindexPrev = pindexBest; 
     if (psieve.get() == NULL)
     {
         // Build sieve
         nStart = GetTimeMicros();
-        psieve.reset(new CSieveOfEratosthenes(nMaxSieveSize, block.nBits, block.GetHeaderHash(), bnFixedMultiplier));
+        psieve.reset(new CSieveOfEratosthenes(nMaxSieveSize, block.nBits, headerhash, bnFixedMultiplier));
         int64 nSieveRoundLimit = (int)GetArg("-gensieveroundlimitms", 1000);
         while (psieve->Weave() && pindexPrev == pindexBest && (GetTimeMicros() - nStart < 1000 * nSieveRoundLimit));
-        if (fDebug && GetBoolArg("-printmining"))
-            printf("MineProbablePrimeChain() : new sieve (%u/%u@%u%%) ready in %uus\n", psieve->GetCandidateCount(), nMaxSieveSize, psieve->GetProgressPercentage(), (unsigned int) (GetTimeMicros() - nStart));
+        //while (psieve->Weave() && (GetTimeMicros() - nStart < 3000000));
+        //printf("MineProbablePrimeChain() : new sieve (%u/%u@%u%%) ready in %uus\n", psieve->GetCandidateCount(), nMaxSieveSize, psieve->GetProgressPercentage(), (unsigned int) (GetTimeMicros() - nStart));
     }
 
     CBigNum bnChainOrigin;
@@ -369,7 +385,7 @@ bool MineProbablePrimeChain(CBlock& block, CBigNum& bnFixedMultiplier, bool& fNe
     nStart = GetTimeMicros();
     nCurrent = nStart;
 
-    while (nCurrent - nStart < 10000 && nCurrent >= nStart && pindexPrev == pindexBest)
+    while (nCurrent - nStart < 10000 && nCurrent >= nStart  && pindexPrev == pindexBest)
     {
         nTests++;
         if (!psieve->GetNextCandidateMultiplier(nTriedMultiplier))
@@ -379,15 +395,15 @@ bool MineProbablePrimeChain(CBlock& block, CBigNum& bnFixedMultiplier, bool& fNe
             fNewBlock = true; // notify caller to change nonce
             return false;
         }
-        bnChainOrigin = CBigNum(block.GetHeaderHash()) * bnFixedMultiplier * nTriedMultiplier;
+        bnChainOrigin = CBigNum(headerhash) * bnFixedMultiplier * nTriedMultiplier;
         unsigned int nChainLengthCunningham1 = 0;
         unsigned int nChainLengthCunningham2 = 0;
         unsigned int nChainLengthBiTwin = 0;
         if (ProbablePrimeChainTest(bnChainOrigin, block.nBits, false, nChainLengthCunningham1, nChainLengthCunningham2, nChainLengthBiTwin))
         {
             block.bnPrimeChainMultiplier = bnFixedMultiplier * nTriedMultiplier;
-            printf("Probable prime chain found for block=%s!!\n  Target: %s\n  Length: (%s %s %s)\n", block.GetHash().GetHex().c_str(),
-            TargetToString(block.nBits).c_str(), TargetToString(nChainLengthCunningham1).c_str(), TargetToString(nChainLengthCunningham2).c_str(), TargetToString(nChainLengthBiTwin).c_str());
+            //printf("Probable prime chain found for block=%s!!\n  Target: %s\n  Length: (%s %s %s)\n", block.GetHash().GetHex().c_str(),
+            //TargetToString(block.nBits).c_str(), TargetToString(nChainLengthCunningham1).c_str(), TargetToString(nChainLengthCunningham2).c_str(), TargetToString(nChainLengthBiTwin).c_str());
             nProbableChainLength = std::max(std::max(nChainLengthCunningham1, nChainLengthCunningham2), nChainLengthBiTwin);
             return true;
         }
@@ -513,6 +529,7 @@ unsigned int CSieveOfEratosthenes::GetProgressPercentage()
 {
     return std::min(100u, (((nPrimeSeq >= vPrimes.size())? nPrimeTableLimit : vPrimes[nPrimeSeq]) * 100 / nSieveSize));
 }
+ 
 
 // Weave sieve for the next prime in table
 // Return values:
@@ -556,7 +573,7 @@ bool CSieveOfEratosthenes::Weave()
         if (((nBiTwinSeq & 1u) == 0))
             for (unsigned int nVariableMultiplier = nSolvedMultiplier; nVariableMultiplier < nSieveSize; nVariableMultiplier += nPrime)
                 vfCompositeCunningham1[nVariableMultiplier] = true;
-        if (((nBiTwinSeq & 1u) == 1u))
+        else
             for (unsigned int nVariableMultiplier = nSolvedMultiplier; nVariableMultiplier < nSieveSize; nVariableMultiplier += nPrime)
                 vfCompositeCunningham2[nVariableMultiplier] = true;
     }
